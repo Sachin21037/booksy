@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 60" width="100%" height="100%">
+  <defs>
+    <linearGradient id="hStarGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFDF00" />
+      <stop offset="100%" stop-color="#E8A317" />
+    </linearGradient>
+    <linearGradient id="hWingGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#006666" />
+      <stop offset="60%" stop-color="#00A896" />
+      <stop offset="100%" stop-color="#02C39A" />
+    </linearGradient>
+    <linearGradient id="hFeatherGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00A896" />
+      <stop offset="100%" stop-color="#17324D" />
+    </linearGradient>
+  </defs>
+
+  <!-- Left Winged Book Icon (scaled to fit nicely in 50x50 at x=0, y=5) -->
+  <g transform="translate(4, 3) scale(0.13)">
+    <!-- Star Glow -->
+    <circle cx="250" cy="140" r="50" fill="#FCD34D" opacity="0.35" />
+    <!-- 8-pointed star -->
+    <polygon points="250,110 256,132 278,140 256,148 250,170 244,148 222,140 244,132" fill="url(#hStarGlow)" />
+    <!-- Left Wing -->
+    <path d="M 190 200 C 160 160 110 100 80 95 C 75 115 85 145 105 165 C 80 145 80 170 95 195 C 110 215 135 235 165 245 C 150 220 140 185 170 175 C 145 190 145 220 170 235 Z" fill="url(#hWingGrad)" />
+    <!-- Right Wing -->
+    <path d="M 310 200 C 340 160 390 100 420 95 C 425 115 415 145 395 165 C 420 145 420 170 405 195 C 390 215 365 235 335 245 C 350 220 360 185 330 175 C 355 190 355 220 330 235 Z" fill="url(#hWingGrad)" />
+    <!-- Open Book Navy Body -->
+    <path d="M 250 295 L 140 310 C 135 305 130 260 160 190 C 190 185 230 195 250 215 C 270 195 310 185 340 190 C 370 260 365 305 360 310 Z" fill="#0D1E30" />
+    <path d="M 246 215 C 225 198 185 190 160 195 C 135 255 140 295 146 300 C 175 292 215 285 246 295 Z" fill="#17324D" />
+    <path d="M 254 215 C 275 198 315 190 340 195 C 365 255 360 295 354 300 C 325 292 285 285 254 295 Z" fill="#17324D" />
+    <!-- Page Lines -->
+    <path d="M 148 296 C 178 288 218 282 246 290" stroke="#FFFFFF" stroke-width="4" fill="none" />
+    <path d="M 352 296 C 322 288 282 282 254 290" stroke="#FFFFFF" stroke-width="4" fill="none" />
+    <!-- Golden Quill tip -->
+    <circle cx="250" cy="305" r="5" fill="#E8A317" />
+  </g>
+
+  <!-- Typography: Booksy -->
+  <g transform="translate(68, 41)">
+    <text x="0" y="0" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" fill="#17324D" letter-spacing="-0.5">
+      Booksy
+    </text>
+    <!-- Quill Feather on Y -->
+    <path d="M 103 -22 C 109 -31 119 -38 127 -41 C 123 -31 117 -24 107 -17 C 114 -18 119 -13 121 -8 C 113 -9 106 -13 103 -16 Z" fill="url(#hFeatherGrad)" />
+  </g>
+</svg>
