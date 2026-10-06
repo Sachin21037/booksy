@@ -111,4 +111,9 @@ if (file_exists(__DIR__ . '/includes/banners.php')) {
 if (file_exists(__DIR__ . '/includes/fraud_detection.php')) {
     require_once __DIR__ . '/includes/fraud_detection.php';
 }
+
+// Include PayHere Payment Gateway Helper
+if (file_exists(__DIR__ . '/includes/payhere_config.php')) {
+    require_once __DIR__ . '/includes/payhere_config.php';
+}
 ?>

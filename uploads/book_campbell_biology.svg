@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 440" width="100%" height="100%">
+  <defs>
+    <linearGradient id="grad_book_campbell_biology.svg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0B2926;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#164843;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="4" stdDeviation="4" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  
+  <!-- Book Spine & Cover Base -->
+  <rect width="320" height="440" rx="10" fill="url(#grad_book_campbell_biology.svg)" />
+  
+  <!-- Spine Texture & Book Depth -->
+  <rect x="0" y="0" width="16" height="440" fill="rgba(0,0,0,0.3)" />
+  <line x1="16" y1="0" x2="16" y2="440" stroke="rgba(232,163,23,0.3)" stroke-width="1.5" />
+  <line x1="22" y1="0" x2="22" y2="440" stroke="rgba(0,0,0,0.25)" stroke-width="1" />
+  
+  <!-- Outer Gold Inset Border -->
+  <rect x="34" y="30" width="254" height="380" rx="6" fill="none" stroke="#E8A317" stroke-width="1.2" opacity="0.35" />
+  <rect x="38" y="34" width="246" height="372" rx="4" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+  
+  <!-- Corner Ornaments -->
+  <polygon points="34,30 46,30 34,42" fill="#E8A317" opacity="0.5" />
+  <polygon points="288,30 276,30 288,42" fill="#E8A317" opacity="0.5" />
+  <polygon points="34,410 46,410 34,398" fill="#E8A317" opacity="0.5" />
+  <polygon points="288,410 276,410 288,398" fill="#E8A317" opacity="0.5" />
+  
+  <!-- Category Ribbon Top -->
+  <rect x="46" y="44" width="230" height="22" rx="4" fill="rgba(0,0,0,0.4)" stroke="#E8A317" stroke-width="0.8" />
+  <text x="161" y="59" fill="#E8A317" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="800" letter-spacing="1.5" text-anchor="middle">BIOLOGY & MEDICINE</text>
+  
+  <!-- Thematic Genre Illustration Graphics -->
+  <g>
+                <!-- Biological Molecular Structure & DNA Arc -->
+            <path d="M90,80 Q160,140 230,80" fill="none" stroke="#48CAE4" stroke-width="2.5" opacity="0.6" />
+            <path d="M90,140 Q160,80 230,140" fill="none" stroke="#E8A317" stroke-width="2.5" opacity="0.6" />
+            <line x1="120" y1="105" x2="120" y2="115" stroke="#fff" stroke-width="2" opacity="0.7" />
+            <line x1="160" y1="95" x2="160" y2="125" stroke="#fff" stroke-width="2" opacity="0.7" />
+            <line x1="200" y1="105" x2="200" y2="115" stroke="#fff" stroke-width="2" opacity="0.7" />
+            <circle cx="90" cy="80" r="5" fill="#48CAE4" />
+            <circle cx="230" cy="80" r="5" fill="#48CAE4" />
+            <circle cx="90" cy="140" r="5" fill="#E8A317" />
+            <circle cx="230" cy="140" r="5" fill="#E8A317" />
+  </g>
+  
+  <!-- Title Box -->
+  <foreignObject x="44" y="195" width="234" height="100">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="color:#FFFFFF;font-family:'Plus Jakarta Sans', system-ui, sans-serif;font-weight:800;font-size:18px;line-height:1.25;text-align:center;text-shadow:0 2px 6px rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;height:100%;">
+      Campbell Biology
+    </div>
+  </foreignObject>
+  
+  <!-- Subtitle / Author Info -->
+  <foreignObject x="44" y="300" width="234" height="55">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="color:#F7F2E8;font-family:system-ui, sans-serif;font-weight:500;font-size:11px;line-height:1.35;text-align:center;opacity:0.9;">
+      11th Global Edition • Urry, Cain, Wasserman
+    </div>
+  </foreignObject>
+  
+  <!-- Bottom Quality Badge -->
+  <rect x="68" y="365" width="186" height="26" rx="13" fill="#E8A317" />
+  <text x="161" y="382" fill="#17324D" font-family="system-ui, sans-serif" font-size="10.5" font-weight="800" letter-spacing="0.5" text-anchor="middle">★ Medical & A/L Core ★</text>
+</svg>

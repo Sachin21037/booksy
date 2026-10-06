@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 440" width="100%" height="100%">
+  <defs>
+    <linearGradient id="grad_book_madol_doova.svg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1A3323;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2D5A3F;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="4" stdDeviation="4" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  
+  <!-- Book Spine & Cover Base -->
+  <rect width="320" height="440" rx="10" fill="url(#grad_book_madol_doova.svg)" />
+  
+  <!-- Spine Texture & Book Depth -->
+  <rect x="0" y="0" width="16" height="440" fill="rgba(0,0,0,0.3)" />
+  <line x1="16" y1="0" x2="16" y2="440" stroke="rgba(232,163,23,0.3)" stroke-width="1.5" />
+  <line x1="22" y1="0" x2="22" y2="440" stroke="rgba(0,0,0,0.25)" stroke-width="1" />
+  
+  <!-- Outer Gold Inset Border -->
+  <rect x="34" y="30" width="254" height="380" rx="6" fill="none" stroke="#F4D06F" stroke-width="1.2" opacity="0.35" />
+  <rect x="38" y="34" width="246" height="372" rx="4" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+  
+  <!-- Corner Ornaments -->
+  <polygon points="34,30 46,30 34,42" fill="#F4D06F" opacity="0.5" />
+  <polygon points="288,30 276,30 288,42" fill="#F4D06F" opacity="0.5" />
+  <polygon points="34,410 46,410 34,398" fill="#F4D06F" opacity="0.5" />
+  <polygon points="288,410 276,410 288,398" fill="#F4D06F" opacity="0.5" />
+  
+  <!-- Category Ribbon Top -->
+  <rect x="46" y="44" width="230" height="22" rx="4" fill="rgba(0,0,0,0.4)" stroke="#F4D06F" stroke-width="0.8" />
+  <text x="161" y="59" fill="#F4D06F" font-family="system-ui, -apple-system, sans-serif" font-size="9" font-weight="800" letter-spacing="1.5" text-anchor="middle">SINHALA FICTION CLASSIC</text>
+  
+  <!-- Thematic Genre Illustration Graphics -->
+  <g>
+                <!-- Tropical Island Palm & River Canoe -->
+            <circle cx="200" cy="85" r="28" fill="#F4D06F" opacity="0.6" />
+            <path d="M80,165 Q160,135 240,165" fill="none" stroke="#A7D7C5" stroke-width="2" opacity="0.5" />
+            <path d="M120,150 Q160,165 200,150 Q160,155 120,150 Z" fill="#F4D06F" opacity="0.8" />
+            <!-- Palm fronds silhouette -->
+            <path d="M85,155 Q95,110 125,95 Q100,120 90,155" fill="#A7D7C5" opacity="0.7" />
+            <path d="M85,155 Q70,115 50,105 Q70,125 85,155" fill="#A7D7C5" opacity="0.7" />
+  </g>
+  
+  <!-- Title Box -->
+  <foreignObject x="44" y="195" width="234" height="100">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="color:#FFFFFF;font-family:'Plus Jakarta Sans', system-ui, sans-serif;font-weight:800;font-size:18px;line-height:1.25;text-align:center;text-shadow:0 2px 6px rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;height:100%;">
+      Madol Doova (මාදොල් දූව)
+    </div>
+  </foreignObject>
+  
+  <!-- Subtitle / Author Info -->
+  <foreignObject x="44" y="300" width="234" height="55">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="color:#F7F2E8;font-family:system-ui, sans-serif;font-weight:500;font-size:11px;line-height:1.35;text-align:center;opacity:0.9;">
+      Original Illustrated Edition • Martin Wickramasinghe
+    </div>
+  </foreignObject>
+  
+  <!-- Bottom Quality Badge -->
+  <rect x="68" y="365" width="186" height="26" rx="13" fill="#F4D06F" />
+  <text x="161" y="382" fill="#17324D" font-family="system-ui, sans-serif" font-size="10.5" font-weight="800" letter-spacing="0.5" text-anchor="middle">★ Sri Lankan Masterpiece ★</text>
+</svg>
