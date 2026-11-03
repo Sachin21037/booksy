@@ -1,5 +1,6 @@
 <?php
 require_once 'db.php';
+global $pdo;
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -17,11 +18,23 @@ if (!is_admin()) {
 $selectedMonth = isset($_GET['month']) && is_numeric($_GET['month']) ? intval($_GET['month']) : intval(date('n'));
 $selectedYear  = isset($_GET['year']) && is_numeric($_GET['year']) ? intval($_GET['year']) : intval(date('Y'));
 
-$analytics = get_admin_monetization_analytics($pdo, $selectedMonth, $selectedYear);
+$startDateParam = isset($_GET['start_date']) && !empty($_GET['start_date']) ? trim($_GET['start_date']) : null;
+$endDateParam   = isset($_GET['end_date']) && !empty($_GET['end_date']) ? trim($_GET['end_date']) : null;
+
+// If user selected month/year without custom start_date
+if (isset($_GET['month']) && empty($_GET['start_date'])) {
+    $startDateParam = sprintf('%04d-%02d-01', $selectedYear, $selectedMonth);
+    $endDateParam   = date('Y-m-t', strtotime($startDateParam));
+}
+
+$analytics = get_admin_monetization_analytics($pdo, $selectedMonth, $selectedYear, $startDateParam, $endDateParam);
 $settings = $analytics['settings'];
 
-// Fetch recent orders with commission status
-$recentOrdersStmt = $pdo->prepare("
+// Fetch orders in selected period with commission status
+$startDateTime = $analytics['start_date'] . ' 00:00:00';
+$endDateTime   = $analytics['end_date'] . ' 23:59:59';
+
+$periodOrdersStmt = $pdo->prepare("
     SELECT o.id, o.buyer_id, o.total_amount, o.shipping_address, o.payment_mode, o.status, o.created_at,
            u.name AS buyer_name, 
            COALESCE(MAX(oc.commission_amount), 0.00) AS commission_amount,
@@ -36,12 +49,12 @@ $recentOrdersStmt = $pdo->prepare("
     LEFT JOIN books b ON oi.book_id = b.id
     LEFT JOIN users s ON b.seller_id = s.id
     LEFT JOIN order_commissions oc ON o.id = oc.order_id
+    WHERE o.created_at >= ? AND o.created_at <= ?
     GROUP BY o.id, o.buyer_id, o.total_amount, o.shipping_address, o.payment_mode, o.status, o.created_at, u.name
     ORDER BY o.created_at DESC
-    LIMIT 15
 ");
-$recentOrdersStmt->execute();
-$recentOrders = $recentOrdersStmt->fetchAll();
+$periodOrdersStmt->execute([$startDateTime, $endDateTime]);
+$recentOrders = $periodOrdersStmt->fetchAll();
 
 // Month name
 $monthName = date('F', mktime(0, 0, 0, $selectedMonth, 10));
@@ -96,96 +109,280 @@ include 'includes/header.php';
 
 <div class="container py-3 py-lg-4">
 
-    <!-- Month Filter & Overview Toolbar -->
+    <!-- Date Range & Period Filter Toolbar -->
     <div class="card border-0 shadow-sm p-3 rounded-4 bg-white mb-4 border">
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-            <div class="d-flex align-items-center gap-2">
-                <span class="fw-bold text-navy"><i class="bi bi-graph-up-arrow text-teal me-1"></i> Financial Reporting Period:</span>
-                <span class="badge bg-teal-light text-teal fw-bold fs-6 px-3 py-1.5"><?= $monthName ?> <?= $selectedYear ?></span>
+        <div class="d-flex flex-column flex-xl-row justify-content-between align-items-xl-center gap-3">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <span class="fw-bold text-navy"><i class="bi bi-calendar-range text-teal me-1"></i> Reporting Period:</span>
+                <span class="badge bg-teal-light text-teal fw-bold fs-6 px-3 py-1.5">
+                    <i class="bi bi-calendar3 me-1"></i> <?= htmlspecialchars($analytics['period_label']) ?>
+                </span>
+                <?php if ($analytics['is_custom_range']): ?>
+                    <span class="badge bg-primary text-white small px-2.5 py-1 rounded-pill">
+                        <i class="bi bi-funnel-fill me-1"></i> Custom Range
+                    </span>
+                <?php endif; ?>
             </div>
             
-            <form method="GET" action="admin-monetization.php" class="d-flex align-items-center gap-2">
-                <select name="month" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-                    <?php for ($m = 1; $m <= 12; $m++): ?>
-                        <option value="<?= $m ?>" <?= $m === $selectedMonth ? 'selected' : '' ?>>
-                            <?= date('F', mktime(0, 0, 0, $m, 10)) ?>
-                        </option>
-                    <?php endfor; ?>
-                </select>
-                <select name="year" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-                    <option value="2026" <?= $selectedYear === 2026 ? 'selected' : '' ?>>2026</option>
-                    <option value="2025" <?= $selectedYear === 2025 ? 'selected' : '' ?>>2025</option>
-                </select>
+            <form method="GET" action="admin-monetization.php" class="d-flex flex-wrap align-items-center gap-2">
+                <!-- Two Date Inputs: Start Date & End Date -->
+                <div class="input-group input-group-sm" style="width: auto;">
+                    <span class="input-group-text bg-light text-muted fw-semibold small">
+                        <i class="bi bi-calendar-event me-1 text-teal"></i> From
+                    </span>
+                    <input type="date" name="start_date" id="filterStartDate" class="form-control form-control-sm" 
+                           value="<?= htmlspecialchars($analytics['start_date']) ?>" required>
+                </div>
+
+                <div class="input-group input-group-sm" style="width: auto;">
+                    <span class="input-group-text bg-light text-muted fw-semibold small">
+                        <i class="bi bi-calendar-check me-1 text-teal"></i> To
+                    </span>
+                    <input type="date" name="end_date" id="filterEndDate" class="form-control form-control-sm" 
+                           value="<?= htmlspecialchars($analytics['end_date']) ?>" required>
+                </div>
+
+                <button type="submit" class="btn btn-booksy-primary btn-sm px-3 fw-bold shadow-sm">
+                    <i class="bi bi-funnel-fill me-1"></i> Apply Filter
+                </button>
+
+                <!-- Quick Presets Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle rounded-pill px-3" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-clock-history me-1"></i> Presets
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm small">
+                        <li><h6 class="dropdown-header text-uppercase text-muted" style="font-size: 0.7rem;">Quick Date Ranges</h6></li>
+                        <li><a class="dropdown-item" href="admin-monetization.php?start_date=<?= date('Y-m-d') ?>&end_date=<?= date('Y-m-d') ?>">Today</a></li>
+                        <li><a class="dropdown-item" href="admin-monetization.php?start_date=<?= date('Y-m-d', strtotime('-7 days')) ?>&end_date=<?= date('Y-m-d') ?>">Last 7 Days</a></li>
+                        <li><a class="dropdown-item" href="admin-monetization.php?start_date=<?= date('Y-m-d', strtotime('-30 days')) ?>&end_date=<?= date('Y-m-d') ?>">Last 30 Days</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header text-uppercase text-muted" style="font-size: 0.7rem;">Monthly Reports</h6></li>
+                        <li><a class="dropdown-item" href="admin-monetization.php?start_date=<?= date('Y-m-01') ?>&end_date=<?= date('Y-m-t') ?>">This Month (<?= date('F') ?>)</a></li>
+                        <li><a class="dropdown-item" href="admin-monetization.php?start_date=<?= date('Y-m-01', strtotime('first day of last month')) ?>&end_date=<?= date('Y-m-t', strtotime('last month')) ?>">Last Month (<?= date('F', strtotime('last month')) ?>)</a></li>
+                        <li><a class="dropdown-item" href="admin-monetization.php?start_date=2026-09-01&end_date=2026-09-30">September 2026</a></li>
+                        <li><a class="dropdown-item" href="admin-monetization.php?start_date=2026-08-01&end_date=2026-08-31">August 2026</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item fw-semibold text-primary" href="admin-monetization.php?start_date=2026-08-01&end_date=<?= date('Y-m-d') ?>">All-Time Cumulative</a></li>
+                    </ul>
+                </div>
+
+                <?php if ($analytics['is_custom_range'] || isset($_GET['start_date']) || isset($_GET['month'])): ?>
+                    <a href="admin-monetization.php" class="btn btn-outline-danger btn-sm rounded-pill px-2.5" title="Reset Filter to Current Month">
+                        <i class="bi bi-x-circle me-1"></i> Reset
+                    </a>
+                <?php endif; ?>
             </form>
         </div>
     </div>
 
-    <!-- 6 Executive KPI Metric Cards -->
+    <!-- 6 Executive KPI Metric Cards (Reflecting Selected Period) -->
     <div class="row g-3 mb-4">
-        <!-- 1. Marketplace Total GMV -->
+        <!-- 1. Marketplace Period GMV -->
         <div class="col-6 col-md-4 col-lg-2">
             <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border h-100">
-                <span class="text-muted small fw-semibold">Monthly GMV</span>
-                <div class="fs-4 fw-extrabold text-navy mt-1">Rs. <?= number_format($analytics['monthly_gmv']) ?></div>
+                <span class="text-muted small fw-semibold">Period GMV</span>
+                <div class="fs-4 fw-extrabold text-navy mt-1">Rs. <?= number_format($analytics['period_gmv'], 2) ?></div>
                 <div class="small text-muted mt-auto" style="font-size: 0.72rem;">
                     All-Time: Rs. <?= number_format($analytics['all_time_gmv']) ?>
                 </div>
             </div>
         </div>
 
-        <!-- 2. Monthly Commission Revenue -->
+        <!-- 2. Period Total Platform Gross Profit -->
+        <div class="col-6 col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-navy text-white h-100">
+                <span class="text-white-50 small fw-semibold">Total Revenue</span>
+                <div class="fs-4 fw-extrabold text-white mt-1">Rs. <?= number_format($analytics['period_total_revenue'], 2) ?></div>
+                <div class="small text-white-50 mt-auto" style="font-size: 0.72rem;">
+                    All-Time: Rs. <?= number_format($analytics['all_time_platform_revenue'], 2) ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Period Commission Revenue -->
         <div class="col-6 col-md-4 col-lg-2">
             <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border h-100" style="border-top: 3px solid #0d6efd !important;">
                 <span class="text-muted small fw-semibold">3% Commission</span>
-                <div class="fs-4 fw-extrabold text-primary mt-1">Rs. <?= number_format($analytics['monthly_commission_revenue'], 2) ?></div>
+                <div class="fs-4 fw-extrabold text-primary mt-1">Rs. <?= number_format($analytics['period_commission_revenue'], 2) ?></div>
                 <div class="small text-muted mt-auto" style="font-size: 0.72rem;">
                     All-Time: Rs. <?= number_format($analytics['total_commission_revenue'], 2) ?>
                 </div>
             </div>
         </div>
 
-        <!-- 3. Promotion Boosts Revenue -->
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border h-100" style="border-top: 3px solid #198754 !important;">
-                <span class="text-muted small fw-semibold">Listing Boosts</span>
-                <div class="fs-4 fw-extrabold text-success mt-1">Rs. <?= number_format($analytics['total_boost_revenue'], 2) ?></div>
-                <div class="small text-muted mt-auto" style="font-size: 0.72rem;">
-                    Micro-promotions
-                </div>
-            </div>
-        </div>
-
-        <!-- 4. VIP Memberships Revenue -->
+        <!-- 4. Promotion Boosts & VIP Subscriptions Revenue -->
         <div class="col-6 col-md-4 col-lg-2">
             <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border h-100" style="border-top: 3px solid #f59e0b !important;">
-                <span class="text-muted small fw-semibold">VIP Memberships</span>
-                <div class="fs-4 fw-extrabold text-gold mt-1">Rs. <?= number_format($analytics['total_vip_revenue'], 2) ?></div>
+                <span class="text-muted small fw-semibold">Boosts & VIP</span>
+                <div class="fs-4 fw-extrabold text-gold mt-1">Rs. <?= number_format($analytics['period_boost_revenue'] + $analytics['period_vip_revenue'], 2) ?></div>
                 <div class="small text-muted mt-auto" style="font-size: 0.72rem;">
-                    Recurring subs
+                    Boosts: Rs. <?= number_format($analytics['period_boost_revenue']) ?> | VIP: Rs. <?= number_format($analytics['period_vip_revenue']) ?>
                 </div>
             </div>
         </div>
 
-        <!-- 5. Total Platform Gross Profit -->
-        <div class="col-6 col-md-4 col-lg-2">
-            <div class="card border-0 shadow-sm rounded-4 p-3 bg-navy text-white h-100">
-                <span class="text-white-50 small fw-semibold">Total Revenue</span>
-                <div class="fs-4 fw-extrabold text-white mt-1">Rs. <?= number_format($analytics['total_platform_revenue'], 2) ?></div>
-                <div class="small text-white-50 mt-auto" style="font-size: 0.72rem;">
-                    All streams combined
-                </div>
-            </div>
-        </div>
-
-        <!-- 6. Student Subsidy Metric -->
+        <!-- 5. Registered Users in Period -->
         <div class="col-6 col-md-4 col-lg-2">
             <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border h-100" style="border-top: 3px solid var(--teal-primary) !important;">
-                <span class="text-muted small fw-semibold">0% Tier Volume</span>
-                <div class="fs-4 fw-extrabold text-teal mt-1">Rs. <?= number_format($analytics['student_subsidized_volume']) ?></div>
+                <span class="text-muted small fw-semibold">Registered Users</span>
+                <div class="fs-4 fw-extrabold text-teal mt-1"><?= number_format($analytics['period_registered_users_count']) ?> Users</div>
                 <div class="small text-muted mt-auto" style="font-size: 0.72rem;">
-                    Student/Casual subsidy
+                    <a href="#registeredUsersSection" class="text-teal text-decoration-none fw-semibold">
+                        View List <i class="bi bi-arrow-down-short"></i>
+                    </a>
+                    (Total: <?= number_format($analytics['all_time_users_count']) ?>)
                 </div>
             </div>
+        </div>
+
+        <!-- 6. Period Orders -->
+        <div class="col-6 col-md-4 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border h-100" style="border-top: 3px solid #198754 !important;">
+                <span class="text-muted small fw-semibold">Orders in Period</span>
+                <div class="fs-4 fw-extrabold text-success mt-1"><?= number_format($analytics['period_total_orders']) ?> Orders</div>
+                <div class="small text-muted mt-auto" style="font-size: 0.72rem;">
+                    <a href="#revenueBreakdownSection" class="text-success text-decoration-none fw-semibold">
+                        View Queue <i class="bi bi-arrow-down-short"></i>
+                    </a>
+                    (<?= $analytics['period_completed_orders'] ?> Completed)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Period Executive Summary Banner -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="background: linear-gradient(135deg, #f0fdf4 0%, #e6fffa 100%); border-left: 5px solid var(--teal-primary) !important;">
+        <div class="card-body p-3 p-md-4 d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+            <div class="d-flex align-items-start gap-3">
+                <div class="seller-avatar bg-teal text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 44px; height: 44px; font-size: 1.25rem; flex-shrink: 0;">
+                    <i class="bi bi-calendar-check-fill"></i>
+                </div>
+                <div>
+                    <h6 class="fw-bold text-navy mb-1">
+                        Analytics Summary for <?= htmlspecialchars($analytics['period_label']) ?>
+                    </h6>
+                    <div class="text-muted small">
+                        During this timeframe, <strong class="text-teal"><?= number_format($analytics['period_registered_users_count']) ?> new user(s) registered</strong> on Booksy, generating <strong class="text-navy">Rs. <?= number_format($analytics['period_gmv'], 2) ?></strong> in marketplace volume across <strong class="text-navy"><?= number_format($analytics['period_total_orders']) ?> orders</strong>, with <strong class="text-success">Rs. <?= number_format($analytics['period_total_revenue'], 2) ?></strong> in total platform net revenue.
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 flex-shrink-0">
+                <a href="#registeredUsersSection" class="btn btn-sm btn-white bg-white text-navy fw-bold border rounded-pill px-3 py-1.5 shadow-sm">
+                    <i class="bi bi-people-fill text-teal me-1"></i> Registered Users (<?= $analytics['period_registered_users_count'] ?>)
+                </a>
+                <a href="#revenueBreakdownSection" class="btn btn-sm btn-booksy-primary rounded-pill px-3 py-1.5 shadow-sm">
+                    <i class="bi bi-receipt me-1"></i> Orders & Revenue Queue
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dedicated Registered Users in Selected Period Section -->
+    <div id="registeredUsersSection" class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white border mb-4">
+        <div class="card-header bg-white py-3 px-4 border-bottom d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+            <div>
+                <h6 class="fw-bold text-navy mb-0">
+                    <i class="bi bi-people-fill text-teal me-2"></i>Registered Users During Selected Period
+                </h6>
+                <span class="text-muted small">
+                    Accounts registered between <strong><?= date('M d, Y', strtotime($analytics['start_date'])) ?></strong> and <strong><?= date('M d, Y', strtotime($analytics['end_date'])) ?></strong> (<?= htmlspecialchars($analytics['period_label']) ?>)
+                </span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-teal-light text-teal fw-bold px-3 py-1.5 rounded-pill fs-6">
+                    <i class="bi bi-person-check-fill me-1"></i> <?= number_format($analytics['period_registered_users_count']) ?> Registered
+                </span>
+                <?php if (is_owner()): ?>
+                    <a href="admin-users.php" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                        <i class="bi bi-gear-fill me-1"></i> Manage Users
+                    </a>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <?php if (empty($analytics['period_registered_users'])): ?>
+                <div class="p-5 text-center text-muted">
+                    <div class="mb-2"><i class="bi bi-person-x fs-1 text-muted opacity-50"></i></div>
+                    <div class="fw-semibold">No users registered in this time period</div>
+                    <div class="small text-muted mt-1">Try selecting a broader date range or use the quick presets in the filter bar above.</div>
+                </div>
+            <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">User</th>
+                                <th>Role</th>
+                                <th>Account Status</th>
+                                <th>Contact Phone</th>
+                                <th>Registered Date & Time</th>
+                                <th>Marketplace Activity</th>
+                                <th class="text-end pe-4">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($analytics['period_registered_users'] as $u): ?>
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="rounded-circle bg-navy text-white d-flex align-items-center justify-content-center fw-bold" style="width: 34px; height: 34px; font-size: 0.85rem; flex-shrink: 0;">
+                                                <?= strtoupper(substr($u['name'], 0, 1)) ?>
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold text-navy"><?= htmlspecialchars($u['name']) ?></div>
+                                                <div class="text-muted" style="font-size: 0.72rem;"><?= htmlspecialchars($u['email']) ?></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <?php if ($u['role'] === 'owner'): ?>
+                                            <span class="badge bg-warning text-dark"><i class="bi bi-crown-fill me-1"></i> Owner</span>
+                                        <?php elseif ($u['role'] === 'admin'): ?>
+                                            <span class="badge bg-danger text-white"><i class="bi bi-shield-fill me-1"></i> Admin</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary-subtle text-dark"><i class="bi bi-person me-1"></i> User</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $stBadge = 'bg-success';
+                                        if ($u['account_status'] === 'suspended') $stBadge = 'bg-danger';
+                                        elseif ($u['account_status'] === 'restricted') $stBadge = 'bg-warning text-dark';
+                                        elseif ($u['account_status'] === 'deactivated') $stBadge = 'bg-secondary';
+                                        ?>
+                                        <span class="badge <?= $stBadge ?>"><?= ucfirst(htmlspecialchars($u['account_status'])) ?></span>
+                                    </td>
+                                    <td>
+                                        <?= !empty($u['phone']) ? htmlspecialchars($u['phone']) : '<span class="text-muted">—</span>' ?>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-navy"><?= date('M d, Y', strtotime($u['created_at'])) ?></div>
+                                        <div class="text-muted" style="font-size: 0.72rem;"><?= date('h:i A', strtotime($u['created_at'])) ?></div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-navy border me-1"><i class="bi bi-book me-1"></i> <?= intval($u['books_count']) ?> Listed</span>
+                                        <span class="badge bg-light text-navy border"><i class="bi bi-bag me-1"></i> <?= intval($u['orders_count']) ?> Orders</span>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="mailto:<?= htmlspecialchars($u['email']) ?>" class="btn btn-outline-secondary btn-sm" title="Send Email">
+                                                <i class="bi bi-envelope"></i>
+                                            </a>
+                                            <?php if (is_owner()): ?>
+                                                <a href="admin-users.php?search=<?= urlencode($u['email']) ?>" class="btn btn-outline-primary btn-sm" title="Manage in Site Managers">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </a>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -334,95 +531,109 @@ include 'includes/header.php';
     </div>
 
     <!-- Order Management & Commission Trigger Queue -->
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white border">
-        <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+    <div id="revenueBreakdownSection" class="card border-0 shadow-sm rounded-4 overflow-hidden bg-white border">
+        <div class="card-header bg-white py-3 px-4 border-bottom d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
             <div>
-                <h6 class="fw-bold text-navy mb-0"><i class="bi bi-arrow-repeat text-teal me-2"></i>Order Lifecycle & Commission Processing Queue</h6>
-                <span class="text-muted small">Update order status to trigger automated commission calculations or refund reversals</span>
+                <h6 class="fw-bold text-navy mb-0"><i class="bi bi-arrow-repeat text-teal me-2"></i>Order Lifecycle & Revenue Processing Queue</h6>
+                <span class="text-muted small">Showing orders placed between <strong><?= date('M d, Y', strtotime($analytics['start_date'])) ?></strong> and <strong><?= date('M d, Y', strtotime($analytics['end_date'])) ?></strong> (<?= htmlspecialchars($analytics['period_label']) ?>) &bull; GMV: <strong>Rs. <?= number_format($analytics['period_gmv'], 2) ?></strong></span>
+            </div>
+            <div>
+                <span class="badge bg-teal-light text-teal fw-bold px-3 py-1.5 rounded-pill fs-6">
+                    <i class="bi bi-cart-check-fill me-1"></i> <?= count($recentOrders) ?> Order(s) in Period
+                </span>
             </div>
         </div>
 
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 small">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="ps-4">Order #</th>
-                            <th>Buyer & Seller</th>
-                            <th>Amount</th>
-                            <th>Payment</th>
-                            <th>Status</th>
-                            <th>Commission</th>
-                            <th class="text-end pe-4">Lifecycle Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($recentOrders as $ord): ?>
+            <?php if (empty($recentOrders)): ?>
+                <div class="p-5 text-center text-muted">
+                    <div class="mb-2"><i class="bi bi-receipt-cutoff fs-1 text-muted opacity-50"></i></div>
+                    <div class="fw-semibold">No orders recorded during this time period</div>
+                    <div class="small text-muted mt-1">No purchases occurred between <?= htmlspecialchars($analytics['start_date']) ?> and <?= htmlspecialchars($analytics['end_date']) ?>. Adjust your date filters above to view other transactions.</div>
+                </div>
+            <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 small">
+                        <thead class="table-light">
                             <tr>
-                                <td class="ps-4 fw-bold text-navy">
-                                    <a href="order-success.php?order_id=<?= $ord['id'] ?>" class="text-navy text-decoration-none">
-                                        #BKY-<?= str_pad($ord['id'], 5, '0', STR_PAD_LEFT) ?>
-                                    </a>
-                                    <div class="text-muted" style="font-size: 0.72rem;"><?= date('M d, Y', strtotime($ord['created_at'])) ?></div>
-                                </td>
-                                <td>
-                                    <div>Buyer: <strong><?= htmlspecialchars($ord['buyer_name']) ?></strong></div>
-                                    <div class="text-muted" style="font-size: 0.72rem;">Seller: <?= htmlspecialchars($ord['seller_name'] ?? 'Marketplace') ?></div>
-                                </td>
-                                <td class="fw-bold text-navy">
-                                    Rs. <?= number_format($ord['total_amount'], 2) ?>
-                                </td>
-                                <td>
-                                    <?= htmlspecialchars($ord['payment_mode']) ?>
-                                </td>
-                                <td>
-                                    <?php
-                                    $stClass = 'bg-warning text-dark';
-                                    if ($ord['status'] === 'Completed') $stClass = 'bg-success';
-                                    elseif ($ord['status'] === 'Processing') $stClass = 'bg-primary';
-                                    elseif ($ord['status'] === 'Cancelled') $stClass = 'bg-danger';
-                                    ?>
-                                    <span class="badge <?= $stClass ?>"><?= htmlspecialchars($ord['status']) ?></span>
-                                </td>
-                                <td>
-                                    <?php if ($ord['commission_amount'] > 0): ?>
-                                        <span class="badge bg-primary">Rs. <?= number_format($ord['commission_amount'], 2) ?> (3%)</span>
-                                    <?php elseif ($ord['status'] === 'Completed'): ?>
-                                        <span class="badge bg-success">Rs. 0.00 (0%)</span>
-                                    <?php else: ?>
-                                        <span class="badge bg-light text-muted border">Pending</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="text-end pe-4">
-                                    <div class="btn-group btn-group-sm">
-                                        <?php if ($ord['status'] !== 'Completed'): ?>
-                                            <form method="POST" action="api/manage-order-status.php" class="d-inline">
-                                                <input type="hidden" name="order_id" value="<?= $ord['id'] ?>">
-                                                <input type="hidden" name="new_status" value="Completed">
-                                                <input type="hidden" name="redirect" value="admin-monetization.php">
-                                                <button type="submit" class="btn btn-sm btn-outline-success" title="Mark Completed & Compute Commission">
-                                                    <i class="bi bi-check-circle"></i> Complete
-                                                </button>
-                                            </form>
-                                        <?php endif; ?>
-                                        
-                                        <?php if ($ord['status'] === 'Completed'): ?>
-                                            <form method="POST" action="api/manage-order-status.php" class="d-inline" onsubmit="return confirm('Refund this order and reverse seller sales/commission?');">
-                                                <input type="hidden" name="order_id" value="<?= $ord['id'] ?>">
-                                                <input type="hidden" name="new_status" value="Refunded">
-                                                <input type="hidden" name="redirect" value="admin-monetization.php">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Refund & Reverse">
-                                                    <i class="bi bi-arrow-counterclockwise"></i> Refund
-                                                </button>
-                                            </form>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
+                                <th class="ps-4">Order #</th>
+                                <th>Buyer & Seller</th>
+                                <th>Amount</th>
+                                <th>Payment</th>
+                                <th>Status</th>
+                                <th>Commission</th>
+                                <th class="text-end pe-4">Lifecycle Action</th>
                             </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($recentOrders as $ord): ?>
+                                <tr>
+                                    <td class="ps-4 fw-bold text-navy">
+                                        <a href="order-success.php?order_id=<?= $ord['id'] ?>" class="text-navy text-decoration-none">
+                                            #BKY-<?= str_pad($ord['id'], 5, '0', STR_PAD_LEFT) ?>
+                                        </a>
+                                        <div class="text-muted" style="font-size: 0.72rem;"><?= date('M d, Y', strtotime($ord['created_at'])) ?></div>
+                                    </td>
+                                    <td>
+                                        <div>Buyer: <strong><?= htmlspecialchars($ord['buyer_name']) ?></strong></div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">Seller: <?= htmlspecialchars($ord['seller_name'] ?? 'Marketplace') ?></div>
+                                    </td>
+                                    <td class="fw-bold text-navy">
+                                        Rs. <?= number_format($ord['total_amount'], 2) ?>
+                                    </td>
+                                    <td>
+                                        <?= htmlspecialchars($ord['payment_mode']) ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $stClass = 'bg-warning text-dark';
+                                        if ($ord['status'] === 'Completed') $stClass = 'bg-success';
+                                        elseif ($ord['status'] === 'Confirmed') $stClass = 'bg-info text-white';
+                                        elseif ($ord['status'] === 'Processing') $stClass = 'bg-primary';
+                                        elseif ($ord['status'] === 'Cancelled') $stClass = 'bg-danger';
+                                        ?>
+                                        <span class="badge <?= $stClass ?>"><?= htmlspecialchars($ord['status']) ?></span>
+                                    </td>
+                                    <td>
+                                        <?php if ($ord['commission_amount'] > 0): ?>
+                                            <span class="badge bg-primary">Rs. <?= number_format($ord['commission_amount'], 2) ?> (3%)</span>
+                                        <?php elseif (in_array($ord['status'], ['Completed', 'Confirmed'])): ?>
+                                            <span class="badge bg-success">Rs. 0.00 (0%)</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-light text-muted border">Pending</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <div class="btn-group btn-group-sm">
+                                            <?php if ($ord['status'] !== 'Completed'): ?>
+                                                <form method="POST" action="api/manage-order-status.php" class="d-inline">
+                                                    <input type="hidden" name="order_id" value="<?= $ord['id'] ?>">
+                                                    <input type="hidden" name="new_status" value="Completed">
+                                                    <input type="hidden" name="redirect" value="admin-monetization.php?start_date=<?= urlencode($analytics['start_date']) ?>&end_date=<?= urlencode($analytics['end_date']) ?>">
+                                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Mark Completed & Compute Commission">
+                                                        <i class="bi bi-check-circle"></i> Complete
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+                                            
+                                            <?php if ($ord['status'] === 'Completed'): ?>
+                                                <form method="POST" action="api/manage-order-status.php" class="d-inline" onsubmit="return confirm('Refund this order and reverse seller sales/commission?');">
+                                                    <input type="hidden" name="order_id" value="<?= $ord['id'] ?>">
+                                                    <input type="hidden" name="new_status" value="Refunded">
+                                                    <input type="hidden" name="redirect" value="admin-monetization.php?start_date=<?= urlencode($analytics['start_date']) ?>&end_date=<?= urlencode($analytics['end_date']) ?>">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Refund & Reverse">
+                                                        <i class="bi bi-arrow-counterclockwise"></i> Refund
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>

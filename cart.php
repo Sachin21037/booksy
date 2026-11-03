@@ -14,7 +14,7 @@ if (!isset($_SESSION['cart'])) {
 }
 
 // Action: Add Item to Cart
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
     $book_id = intval($_POST['book_id']);
     $qty = isset($_POST['qty']) ? max(1, intval($_POST['qty'])) : 1;
     
@@ -171,7 +171,7 @@ $card_cvv = '';
 $bank_sender_name = '';
 $bank_ref = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['place_order'])) {
     if (empty($_SESSION['cart'])) {
         $checkout_error = 'Your cart is empty. Please add books to proceed.';
     } else {
@@ -185,36 +185,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
         $promo_code = strtoupper(trim($_POST['promo_code'] ?? ''));
 
         // Payment input parameters
-        $card_name = trim($_POST['card_name'] ?? '');
-        $card_number = trim($_POST['card_number'] ?? '');
-        $card_expiry = trim($_POST['card_expiry'] ?? '');
-        $card_cvv = trim($_POST['card_cvv'] ?? '');
         $bank_sender_name = trim($_POST['bank_sender_name'] ?? '');
         $bank_ref = trim($_POST['bank_ref'] ?? '');
 
         if (empty($buyer_name) || empty($buyer_phone) || empty($shipping_street) || empty($shipping_city)) {
             $checkout_error = 'Please complete all required recipient details (Name, Phone, Street Address, and City).';
-        } elseif ($payment_mode === 'Credit / Debit Card') {
-            if (empty($card_name)) {
-                $checkout_error = 'Please enter the Cardholder Name appearing on your card.';
-            } else {
-                $clean_card = preg_replace('/\s+/', '', $card_number);
-                if (strlen($clean_card) < 13 || strlen($clean_card) > 19 || !ctype_digit($clean_card)) {
-                    $checkout_error = 'Please enter a valid 16-digit Card Number.';
-                } elseif (!preg_match('/^(0[1-9]|1[0-2])\s*\/\s*([0-9]{2})$/', $card_expiry, $exp_m)) {
-                    $checkout_error = 'Please enter a valid Card Expiry Date in MM/YY format (e.g. 12/28).';
-                } else {
-                    $exp_month = intval($exp_m[1]);
-                    $exp_year = intval('20' . $exp_m[2]);
-                    $cur_year = intval(date('Y'));
-                    $cur_month = intval(date('n'));
-                    if ($exp_year < $cur_year || ($exp_year === $cur_year && $exp_month < $cur_month)) {
-                        $checkout_error = 'The card entered has already expired. Please enter an active card.';
-                    } elseif (strlen($card_cvv) < 3 || strlen($card_cvv) > 4 || !ctype_digit($card_cvv)) {
-                        $checkout_error = 'Please enter a valid 3 or 4-digit CVV / CVC security code.';
-                    }
-                }
-            }
         } elseif ($payment_mode === 'Bank Transfer') {
             if (empty($bank_ref) && empty($bank_sender_name)) {
                 $checkout_error = 'Please provide your Bank Transfer Reference ID or Depositor Name for payment verification.';
@@ -262,23 +237,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
             } else {
                 // Determine stored payment mode & order status
                 $slip_filename = null;
-                if ($payment_mode === 'Credit / Debit Card') {
-                    $clean_card = preg_replace('/\s+/', '', $card_number);
-                    $first_digit = $clean_card[0] ?? '';
-                    $first_two = substr($clean_card, 0, 2);
-                    $first_four = intval(substr($clean_card, 0, 4));
-                    if ($first_digit === '4') {
-                        $brand = 'Visa';
-                    } elseif (in_array($first_two, ['51','52','53','54','55']) || ($first_four >= 2221 && $first_four <= 2720)) {
-                        $brand = 'MasterCard';
-                    } elseif (in_array($first_two, ['34','37'])) {
-                        $brand = 'American Express';
-                    } else {
-                        $brand = 'Credit Card';
-                    }
-                    $last4 = substr($clean_card, -4);
-                    $stored_payment_mode = "$brand (•••• $last4)";
-                    $order_status = 'Confirmed';
+                if ($payment_mode === 'Credit / Debit Card' || $payment_mode === 'Online Payment (PayHere)' || $payment_mode === 'Online Payment') {
+                    $stored_payment_mode = 'Credit / Debit Card (PayHere)';
+                    $order_status = 'Pending';
                 } elseif ($payment_mode === 'Bank Transfer') {
                     // Handle slip upload if provided
                     if (isset($_FILES['bank_slip']) && $_FILES['bank_slip']['error'] === UPLOAD_ERR_OK) {
@@ -292,9 +253,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                         }
                     }
                     $stored_payment_mode = 'Bank Transfer' . (!empty($bank_ref) ? ' (Ref: ' . $bank_ref . ')' : '');
-                    $order_status = 'Pending';
-                } elseif ($payment_mode === 'Online Payment (PayHere)') {
-                    $stored_payment_mode = 'Online Payment (PayHere)';
                     $order_status = 'Pending';
                 } else {
                     $stored_payment_mode = 'Cash on Delivery';
@@ -324,20 +282,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
 
                     // 4. Record Payment in payments table
                     ensure_payment_tables($pdo);
-                    if ($payment_mode === 'Credit / Debit Card') {
-                        $tx_id = 'CARD_' . strtoupper(bin2hex(random_bytes(6)));
-                        $raw = [
-                            'cardholder'   => $card_name,
-                            'brand'        => $brand,
-                            'last4'        => $last4,
-                            'expiry'       => $card_expiry,
-                            'processed_at' => date('Y-m-d H:i:s'),
-                            'mode'         => 'Direct Card Payment (Verified)'
-                        ];
+                    if ($payment_mode === 'Credit / Debit Card' || $payment_mode === 'Online Payment (PayHere)' || $payment_mode === 'Online Payment') {
+                        $tx_id = 'PH_INIT_' . $order_id;
                         $pdo->prepare("
                             INSERT INTO payments (order_id, amount, currency, payment_method, transaction_id, payment_status, raw_response)
-                            VALUES (?, ?, 'LKR', ?, ?, 'Completed', ?)
-                        ")->execute([$order_id, $total_amount, $stored_payment_mode, $tx_id, json_encode($raw)]);
+                            VALUES (?, ?, 'LKR', 'Credit / Debit Card (PayHere)', ?, 'Pending', JSON_OBJECT('gateway', 'PayHere', 'status', 'Awaiting Card Payment'))
+                        ")->execute([$order_id, $total_amount, $tx_id]);
                     } elseif ($payment_mode === 'Bank Transfer') {
                         $tx_id = !empty($bank_ref) ? $bank_ref : ('BT_' . time());
                         $raw = [
@@ -364,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                     // Clear Cart
                     $_SESSION['cart'] = [];
 
-                    if ($payment_mode === 'Online Payment (PayHere)' || $payment_mode === 'Online Payment') {
+                    if ($payment_mode === 'Credit / Debit Card' || $payment_mode === 'Online Payment (PayHere)' || $payment_mode === 'Online Payment') {
                         $buyerInfo = [
                             'name'    => $buyer_name,
                             'email'   => is_logged_in() ? ($_SESSION['user_email'] ?? 'customer@booksy.lk') : 'customer@booksy.lk',
@@ -483,6 +433,61 @@ include 'includes/header.php';
 <div class="container py-3 py-lg-4" id="cartContainer">
 
     <?php 
+    // Handle PayHere cancelled return URL
+    if (isset($_GET['payhere']) && $_GET['payhere'] === 'cancelled') {
+        $cancelOrderId = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
+        if ($cancelOrderId > 0) {
+            try {
+                $coStmt = $pdo->prepare("SELECT * FROM `orders` WHERE `id` = ? AND `status` = 'Pending'");
+                $coStmt->execute([$cancelOrderId]);
+                $cancelOrder = $coStmt->fetch();
+
+                if ($cancelOrder) {
+                    $pdo->beginTransaction();
+                    $pdo->prepare("UPDATE `orders` SET `status` = 'Cancelled' WHERE `id` = ?")->execute([$cancelOrderId]);
+
+                    // Fetch items to restore into cart if needed
+                    $oiStmt = $pdo->prepare("
+                        SELECT oi.*, b.title, b.author, b.price AS book_price, b.image_url, b.book_condition
+                        FROM `order_items` oi
+                        JOIN `books` b ON oi.book_id = b.id
+                        WHERE oi.order_id = ?
+                    ");
+                    $oiStmt->execute([$cancelOrderId]);
+                    $cancelledItems = $oiStmt->fetchAll();
+
+                    // Restore book availability
+                    $pdo->prepare("UPDATE `books` SET `status` = 'available' WHERE `id` IN (SELECT `book_id` FROM `order_items` WHERE `order_id` = ?)")->execute([$cancelOrderId]);
+
+                    record_payhere_transaction($pdo, $cancelOrderId, floatval($cancelOrder['total_amount']), null, 'Cancelled', ['note' => 'Customer cancelled checkout on PayHere gateway']);
+
+                    $pdo->commit();
+
+                    // Restore items to session cart if currently empty
+                    if (empty($_SESSION['cart']) && !empty($cancelledItems)) {
+                        foreach ($cancelledItems as $cItem) {
+                            $_SESSION['cart'][$cItem['book_id']] = [
+                                'id'        => $cItem['book_id'],
+                                'title'     => $cItem['title'],
+                                'author'    => $cItem['author'],
+                                'price'     => floatval($cItem['book_price']),
+                                'image_url' => $cItem['image_url'],
+                                'condition' => $cItem['book_condition'],
+                                'qty'       => intval($cItem['quantity'])
+                            ];
+                        }
+                    }
+
+                    set_flash('warning', 'Online payment via PayHere was cancelled. Your items have been preserved in your cart so you can retry checkout whenever you wish.');
+                }
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+            }
+        }
+    }
+
     $payhere_checkout_id = isset($_GET['payhere_checkout']) ? intval($_GET['payhere_checkout']) : 0;
     $payhere_order = null;
     $payhere_payload = null;
@@ -521,8 +526,8 @@ include 'includes/header.php';
                                 Merchant ID: <?= htmlspecialchars(PAYHERE_MERCHANT_ID) ?>
                             </span>
                         </div>
-                        <h2 class="display-7 fw-bold text-white mb-1 font-serif-title">Complete Your Online Payment</h2>
-                        <p class="text-white-50 small mb-0">Secure 256-bit encrypted checkout via PayHere Sri Lanka</p>
+                        <h2 class="display-7 fw-bold text-white mb-1 font-serif-title">Complete Your Card Payment</h2>
+                        <p class="text-white-50 small mb-0">Secure 256-bit encrypted card checkout via PayHere Sri Lanka</p>
                     </div>
 
                     <div class="card-body p-4 p-md-5 bg-white text-center">
@@ -535,7 +540,7 @@ include 'includes/header.php';
                             </div>
                             <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
                                 <span class="text-muted small">Payment Method:</span>
-                                <span class="badge bg-teal text-white">Online Payment (PayHere)</span>
+                                <span class="badge bg-teal text-white"><i class="bi bi-credit-card-2-front-fill me-1"></i> Credit / Debit Card (PayHere)</span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
                                 <span class="text-muted small">Currency / Security:</span>
@@ -549,7 +554,7 @@ include 'includes/header.php';
 
                         <!-- Card & Wallet Icons Strip -->
                         <div class="mb-4">
-                            <p class="text-muted small mb-2 text-uppercase fw-bold" style="font-size: 0.72rem;">Accepted Payment Methods</p>
+                            <p class="text-muted small mb-2 text-uppercase fw-bold" style="font-size: 0.72rem;">Accepted Payment Cards</p>
                             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
                                 <span class="badge bg-light text-dark border px-2.5 py-1.5"><i class="bi bi-credit-card-2-front text-primary me-1"></i> Visa</span>
                                 <span class="badge bg-light text-dark border px-2.5 py-1.5"><i class="bi bi-credit-card text-danger me-1"></i> MasterCard</span>
@@ -564,7 +569,7 @@ include 'includes/header.php';
                         <div class="d-grid gap-2 mb-3">
                             <button type="button" class="btn btn-warning btn-lg fw-bold rounded-pill py-3 shadow text-dark d-flex align-items-center justify-content-center gap-2" onclick="startPayHereModal()">
                                 <i class="bi bi-shield-lock-fill"></i>
-                                <span>Pay Rs. <?= number_format($payhere_order['total_amount'], 2) ?> with PayHere</span>
+                                <span>Pay Rs. <?= number_format($payhere_order['total_amount'], 2) ?> with Card</span>
                             </button>
                         </div>
 
@@ -893,7 +898,7 @@ include 'includes/header.php';
                             
                             <div class="d-flex flex-column gap-2 mb-3">
                                 
-                                <!-- Method 1: Credit / Debit Card -->
+                                <!-- Method 1: Credit / Debit Card (PayHere Gateway) -->
                                 <label class="payment-method-card <?= $default_payment_mode === 'Credit / Debit Card' ? 'selected' : '' ?> d-flex align-items-center gap-3">
                                     <input type="radio" name="payment_mode" value="Credit / Debit Card" <?= $default_payment_mode === 'Credit / Debit Card' ? 'checked' : '' ?> class="form-check-input mt-0" onchange="togglePaymentBox('card')">
                                     <div class="flex-grow-1">
@@ -905,9 +910,10 @@ include 'includes/header.php';
                                                 <span class="badge bg-primary text-white font-monospace" style="font-size: 0.62rem;">VISA</span>
                                                 <span class="badge bg-danger text-white font-monospace" style="font-size: 0.62rem;">MC</span>
                                                 <span class="badge bg-info text-white font-monospace" style="font-size: 0.62rem;">AMEX</span>
+                                                <span class="badge bg-teal-subtle text-teal font-monospace" style="font-size: 0.62rem;">PAYHERE</span>
                                             </div>
                                         </div>
-                                        <div class="text-muted" style="font-size: 0.74rem;">Instant direct payment with 3D Secure verification</div>
+                                        <div class="text-muted" style="font-size: 0.74rem;">Pay securely with Visa, MasterCard, or AMEX via PayHere Gateway</div>
                                     </div>
                                 </label>
 
@@ -928,99 +934,13 @@ include 'includes/header.php';
                                         <div class="text-muted" style="font-size: 0.74rem;">Deposit to escrow account / online banking slip upload</div>
                                     </div>
                                 </label>
-
-                                <!-- Method 4: Online Payment (PayHere) -->
-                                <label class="payment-method-card <?= $default_payment_mode === 'Online Payment (PayHere)' ? 'selected' : '' ?> d-flex align-items-center gap-3">
-                                    <input type="radio" name="payment_mode" value="Online Payment (PayHere)" <?= $default_payment_mode === 'Online Payment (PayHere)' ? 'checked' : '' ?> class="form-check-input mt-0" onchange="togglePaymentBox('payhere')">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex align-items-center justify-content-between">
-                                            <div class="fw-bold small text-navy">
-                                                <i class="bi bi-wallet2 me-1 text-teal"></i> PayHere Online Gateway
-                                            </div>
-                                            <span class="badge bg-teal-subtle text-teal font-monospace" style="font-size: 0.65rem;">SECURE GATEWAY</span>
-                                        </div>
-                                        <div class="text-muted small d-flex align-items-center gap-1 mt-0.5" style="font-size: 0.72rem;">
-                                            <span>Visa, MasterCard, Genie, eZ Cash, Frimi</span>
-                                        </div>
-                                    </div>
-                                </label>
                             </div>
 
                             <!-- ========================================================= -->
                             <!-- EXPANDABLE PAYMENT DETAILS BOXES                          -->
                             <!-- ========================================================= -->
 
-                            <!-- 1. CARD DETAILS INPUT CONTAINER -->
-                            <div id="cardDetailsBox" class="p-3 bg-light rounded-3 border mb-3 <?= $default_payment_mode === 'Credit / Debit Card' ? '' : 'd-none' ?>">
-                                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <i class="bi bi-credit-card-2-front-fill text-teal fs-5"></i>
-                                        <div>
-                                            <strong class="text-navy small d-block">Enter Card Details</strong>
-                                            <span class="text-muted" style="font-size: 0.7rem;">Enter your 16-digit debit or credit card</span>
-                                        </div>
-                                    </div>
-                                    <button type="button" class="btn btn-sm btn-outline-teal rounded-pill px-2.5 py-1 text-nowrap" style="font-size: 0.72rem;" onclick="fillDemoCard()">
-                                        <i class="bi bi-lightning-fill text-gold me-1"></i> Auto-Fill Sample Card
-                                    </button>
-                                </div>
-
-                                <!-- Card Brands Row -->
-                                <div class="d-flex align-items-center gap-1.5 mb-2.5" id="cardBrandIcons">
-                                    <span class="card-brand-pill badge bg-white text-dark border px-2 py-1" id="badgeVisa"><i class="bi bi-credit-card text-primary me-1"></i>Visa</span>
-                                    <span class="card-brand-pill badge bg-white text-dark border px-2 py-1" id="badgeMastercard"><i class="bi bi-credit-card-2-front text-danger me-1"></i>Mastercard</span>
-                                    <span class="card-brand-pill badge bg-white text-dark border px-2 py-1" id="badgeAmex"><i class="bi bi-credit-card-2-back text-info me-1"></i>AMEX</span>
-                                    <span class="card-brand-pill badge bg-white text-dark border px-2 py-1" id="badgeGeneric"><i class="bi bi-shield-check text-success me-1"></i>Secure</span>
-                                </div>
-
-                                <!-- Cardholder Name -->
-                                <div class="mb-2">
-                                    <label class="form-label fw-bold text-navy mb-1" style="font-size: 0.72rem; text-transform: uppercase;">Name on Card *</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-white"><i class="bi bi-person text-muted"></i></span>
-                                        <input type="text" name="card_name" id="cardNameInput" class="form-control text-uppercase" placeholder="e.g. KAMAL PERERA" value="<?= htmlspecialchars($default_card_name) ?>">
-                                    </div>
-                                </div>
-
-                                <!-- Card Number -->
-                                <div class="mb-2">
-                                    <label class="form-label fw-bold text-navy mb-1" style="font-size: 0.72rem; text-transform: uppercase;">Card Number *</label>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-white" id="cardNumberIcon"><i class="bi bi-credit-card text-muted"></i></span>
-                                        <input type="text" name="card_number" id="cardNumberInput" class="form-control font-monospace" placeholder="4111 2222 3333 4444" maxlength="19" value="<?= htmlspecialchars($default_card_number) ?>" oninput="formatCardNumber(this)">
-                                    </div>
-                                </div>
-
-                                <!-- Expiry and CVV Row -->
-                                <div class="row g-2 mb-2">
-                                    <div class="col-6">
-                                        <label class="form-label fw-bold text-navy mb-1" style="font-size: 0.72rem; text-transform: uppercase;">Expiry Date *</label>
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text bg-white"><i class="bi bi-calendar3 text-muted"></i></span>
-                                            <input type="text" name="card_expiry" id="cardExpiryInput" class="form-control font-monospace" placeholder="MM / YY" maxlength="7" value="<?= htmlspecialchars($default_card_expiry) ?>" oninput="formatCardExpiry(this)">
-                                        </div>
-                                    </div>
-                                    <div class="col-6">
-                                        <div class="d-flex justify-content-between align-items-center mb-1">
-                                            <label class="form-label fw-bold text-navy mb-0" style="font-size: 0.72rem; text-transform: uppercase;">CVV / CVC *</label>
-                                            <span class="text-muted" style="font-size: 0.65rem;" title="3-digit code on back of card" data-bs-toggle="tooltip"><i class="bi bi-info-circle"></i> 3 digits</span>
-                                        </div>
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text bg-white"><i class="bi bi-lock text-muted"></i></span>
-                                            <input type="password" name="card_cvv" id="cardCvvInput" class="form-control font-monospace" placeholder="123" maxlength="4" value="<?= htmlspecialchars($default_card_cvv) ?>" oninput="formatCardCVV(this)">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Security Guarantee Strip -->
-                                <div class="d-flex align-items-center justify-content-between pt-1 text-muted" style="font-size: 0.68rem;">
-                                    <span><i class="bi bi-shield-fill-check text-success me-1"></i>256-Bit SSL Encrypted</span>
-                                    <span><i class="bi bi-patch-check-fill text-teal me-1"></i>PCI-DSS Compliant</span>
-                                    <span><i class="bi bi-lock-fill text-primary me-1"></i>3D Secure 2.0</span>
-                                </div>
-                            </div>
-
-                            <!-- 2. BANK DETAILS INPUT CONTAINER -->
+                            <!-- 1. BANK DETAILS INPUT CONTAINER -->
                             <div id="bankDetailsBox" class="p-3 bg-light rounded-3 border mb-3 <?= (strpos($default_payment_mode, 'Bank Transfer') !== false) ? '' : 'd-none' ?>">
                                 <div class="d-flex align-items-start gap-2 mb-2 pb-2 border-bottom">
                                     <i class="bi bi-bank text-primary fs-5"></i>
@@ -1068,18 +988,7 @@ include 'includes/header.php';
                                 </div>
                             </div>
 
-                            <!-- 3. PAYHERE DETAILS CONTAINER -->
-                            <div id="payhereDetailsBox" class="alert alert-info small mb-3 <?= $default_payment_mode === 'Online Payment (PayHere)' ? '' : 'd-none' ?> rounded-3 border">
-                                <div class="d-flex align-items-start gap-2">
-                                    <i class="bi bi-shield-check text-success fs-5"></i>
-                                    <div>
-                                        <strong class="text-navy">PayHere Payment Gateway Active:</strong><br>
-                                        <span>You will be securely routed through the official PayHere payment portal (Merchant ID: <code>1238355</code>) with 256-bit SSL encryption.</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 4. CASH ON DELIVERY CONTAINER -->
+                            <!-- 3. CASH ON DELIVERY CONTAINER -->
                             <div id="codDetailsBox" class="p-2.5 bg-success-subtle text-success rounded-3 border border-success-subtle mb-3 small <?= $default_payment_mode === 'Cash on Delivery' ? '' : 'd-none' ?>" style="font-size: 0.75rem;">
                                 <div class="d-flex align-items-center gap-2">
                                     <i class="bi bi-cash-coin fs-5 flex-shrink-0"></i>
@@ -1116,7 +1025,7 @@ include 'includes/header.php';
                         </div>
 
                         <button type="submit" name="place_order" id="placeOrderBtn" class="btn btn-booksy-primary btn-lg w-100 fw-bold py-3 shadow">
-                            <i class="bi bi-shield-check me-2"></i> <span id="orderBtnText"><?= $default_payment_mode === 'Credit / Debit Card' ? 'Pay Rs. ' . number_format($total_price, 2) . ' with Card' : ($default_payment_mode === 'Online Payment (PayHere)' ? 'Proceed to PayHere Gateway' : 'Confirm & Place Order (Rs. ' . number_format($total_price, 2) . ')') ?></span>
+                            <i class="bi bi-shield-check me-2"></i> <span id="orderBtnText"><?= $default_payment_mode === 'Credit / Debit Card' ? 'Pay Rs. ' . number_format($total_price, 2) . ' with Card (PayHere)' : 'Confirm & Place Order (Rs. ' . number_format($total_price, 2) . ')' ?></span>
                         </button>
                     </form>
                 </div>

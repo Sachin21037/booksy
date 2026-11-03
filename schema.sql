@@ -681,7 +681,105 @@ VALUES
  NULL,'English',1400.00,TRUE,'Good',
  'Readable copy with light cover wear.',
  'Personal finance classic about financial education.',
- 'Kandy','Kandy','Courier','available',44,'2026-08-17 09:45:00');
+ 'Kandy','Kandy','Courier','available',44,'2026-08-17 09:45:00'),
+
+(27,2,2,'Clean Code: A Handbook of Agile Software Craftsmanship',
+ 'Robert C. Martin','9780132350884','1st Edition','Prentice Hall',
+ 2008,'English',3200.00,TRUE,'Like New',
+ 'Extremely clean copy with no annotations or pencil marks.',
+ 'The quintessential software engineering bible on writing clean, readable, and maintainable code.',
+ 'Colombo','Colombo','Both','available',42,'2026-08-18 10:00:00'),
+
+(28,9,2,'University Physics with Modern Physics (14th Edition)',
+ 'Hugh D. Young, Roger A. Freedman','9780321973610','14th Global Edition','Pearson',
+ 2015,'English',4600.00,TRUE,'Good',
+ 'Complete hardcover edition with minimal pencil highlights.',
+ 'Standard benchmark textbook for engineering, physical sciences, and university physics coursework.',
+ 'Kandy','Kandy','Courier','available',35,'2026-08-18 11:15:00'),
+
+(29,10,2,'Principles of Economics (8th Edition)',
+ 'N. Gregory Mankiw','9781305585126','8th Edition','Cengage Learning',
+ 2017,'English',3500.00,FALSE,'Like New',
+ 'Pristine uncreased spine with clean white pages.',
+ 'The most widely used introductory economics textbook globally.',
+ 'Colombo','Colombo','Both','available',28,'2026-08-18 12:30:00'),
+
+(30,4,3,'The Little Prince (Le Petit Prince)',
+ 'Antoine de Saint-Exupéry','9780156012195','Illustrated Collector Edition','Harcourt',
+ 2019,'English',1250.00,FALSE,'Brand New',
+ 'Unopened gift edition with full-color original watercolor artwork.',
+ 'A timeless philosophical fable cherished by children and adults alike.',
+ 'Galle','Galle','Courier','available',64,'2026-08-19 09:00:00'),
+
+(31,11,3,'Matilda (Puffin Classics Edition)',
+ 'Roald Dahl','9780141365466','Puffin Classics','Puffin Books',
+ 2016,'English',1400.00,TRUE,'Like New',
+ 'Carefully read once, Quentin Blake black and white line illustrations.',
+ 'The enchanting tale of Matilda Wormwood and her brilliant mind.',
+ 'Kandy','Kandy','Both','available',51,'2026-08-19 10:45:00'),
+
+(32,3,3,'The Gruffalo (25th Anniversary Edition)',
+ 'Julia Donaldson, Axel Scheffler','9781509804757','Anniversary Hardcover','Macmillan',
+ 2024,'English',1150.00,FALSE,'Brand New',
+ 'Factory fresh board book edition with vibrant gloss colors.',
+ 'The award-winning classic children picture book about a clever mouse and the Gruffalo.',
+ 'Kurunegala','Kurunegala','Courier','available',39,'2026-08-19 14:10:00'),
+
+(33,5,4,'Thinking, Fast and Slow',
+ 'Daniel Kahneman','9780374533557','International Bestseller','Farrar, Straus and Giroux',
+ 2013,'English',2150.00,TRUE,'Brand New',
+ 'Unread paperback copy with crisp white pages.',
+ 'Nobel laureate Daniel Kahneman explains the two systems that drive our thoughts.',
+ 'Kurunegala','Kurunegala','Courier','available',82,'2026-08-20 08:30:00'),
+
+(34,2,4,'The Psychology of Money: Timeless Lessons on Wealth',
+ 'Morgan Housel','9780857197689','1st Edition','Harriman House',
+ 2020,'English',1950.00,TRUE,'Like New',
+ 'Read once gently, perfectly flat pages with no dog-ears.',
+ '19 short stories exploring the strange ways people think about money, greed, and happiness.',
+ 'Colombo','Colombo','Both','available',95,'2026-08-20 11:20:00'),
+
+(35,9,4,'Deep Work: Rules for Focused Success in a Distracted World',
+ 'Cal Newport','9781455586691','1st Edition','Grand Central Publishing',
+ 2016,'English',1850.00,FALSE,'Good',
+ 'Slight corner shelf wear, pages clean and completely intact.',
+ 'An actionable guide for anyone seeking focused success in a distracted digital world.',
+ 'Colombo','Colombo','Both','available',46,'2026-08-20 15:45:00'),
+
+(36,10,6,'Steve Jobs: The Exclusive Biography',
+ 'Walter Isaacson','9781451648539','Collector Hardcover','Simon & Schuster',
+ 2011,'English',2800.00,TRUE,'Like New',
+ 'Hardcover edition with original monochrome dust jacket intact.',
+ 'The definitive, unvarnished story of the creative entrepreneur who revolutionized six industries.',
+ 'Colombo','Colombo','Both','available',73,'2026-08-21 09:15:00'),
+
+(37,4,6,'Sapiens: A Brief History of Humankind',
+ 'Yuval Noah Harari','9780062316097','International Edition','Harper',
+ 2015,'English',2450.00,TRUE,'Brand New',
+ 'Brand new paperback edition, uncreased spine.',
+ 'A thrilling survey of human history from the Stone Age to modern society.',
+ 'Galle','Galle','Courier','available',112,'2026-08-21 13:00:00'),
+
+(38,5,6,'The Mahavamsa: The Great Chronicle of Ceylon',
+ 'Translated by Wilhelm Geiger','9789559140009','Heritage Hardcover','Buddhist Cultural Centre',
+ 2003,'English',3400.00,TRUE,'Good',
+ 'Collector hardcover edition with gilded spine text, historical map inserts intact.',
+ 'The monumental 5th-century historical chronicle of Sri Lanka.',
+ 'Kurunegala','Kurunegala','Courier','available',54,'2026-08-21 16:30:00'),
+
+(39,11,7,'Salt, Fat, Acid, Heat: Mastering the Elements of Good Cooking',
+ 'Samin Nosrat','9781476753836','Deluxe Illustrated Edition','Simon & Schuster',
+ 2017,'English',3100.00,TRUE,'Like New',
+ 'Large format illustrated hardcover cookbook, clean pages.',
+ 'Revolutionary cooking guide that simplifies culinary mastery down to 4 fundamental elements.',
+ 'Kandy','Kandy','Both','available',61,'2026-08-22 10:20:00'),
+
+(40,3,1,'To Kill a Mockingbird (60th Anniversary Edition)',
+ 'Harper Lee','9780060935467','60th Anniversary Edition','Harper Perennial',
+ 2020,'English',1850.00,FALSE,'Brand New',
+ 'Special commemorative anniversary edition with deckled edges.',
+ 'Harper Lee Pulitzer Prize-winning masterpiece of modern American literature.',
+ 'Kurunegala','Kurunegala','Courier','available',89,'2026-08-22 14:00:00');
 
 -- Multiple images per listing.
 INSERT INTO `book_images` (`book_id`,`image_url`,`is_primary`,`display_order`) VALUES
@@ -697,7 +795,21 @@ INSERT INTO `book_images` (`book_id`,`image_url`,`is_primary`,`display_order`) V
 (9,'book_natgeo_pack.svg',TRUE,1),
 (10,'book_great_gatsby.svg',TRUE,1),
 (11,'book_campbell_biology.svg',TRUE,1),
-(12,'book_rich_dad.svg',TRUE,1);
+(12,'book_rich_dad.svg',TRUE,1),
+(27,'book_clean_code.svg',TRUE,1),
+(28,'book_university_physics.svg',TRUE,1),
+(29,'book_principles_economics.svg',TRUE,1),
+(30,'book_little_prince.svg',TRUE,1),
+(31,'book_matilda.svg',TRUE,1),
+(32,'book_gruffalo.svg',TRUE,1),
+(33,'book_thinking_fast_slow.svg',TRUE,1),
+(34,'book_psychology_of_money.svg',TRUE,1),
+(35,'book_deep_work.svg',TRUE,1),
+(36,'book_steve_jobs.svg',TRUE,1),
+(37,'book_sapiens.svg',TRUE,1),
+(38,'book_mahavamsa.svg',TRUE,1),
+(39,'book_salt_fat_acid_heat.svg',TRUE,1),
+(40,'book_mockingbird.svg',TRUE,1);
 
 -- Sample favorite/wishlist records.
 INSERT INTO `favorites` (`user_id`,`book_id`) VALUES

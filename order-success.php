@@ -30,10 +30,10 @@ if (!$order) {
 if (isset($_GET['payhere'])) {
     if ($_GET['payhere'] === 'simulated_success' || $_GET['payhere'] === 'success' || $_GET['payhere'] === 'completed') {
         if ($order['status'] === 'Pending') {
-            $pdo->prepare("UPDATE orders SET status = 'Confirmed', payment_mode = 'Online Payment (PayHere)' WHERE id = ?")->execute([$order_id]);
+            $pdo->prepare("UPDATE orders SET status = 'Confirmed', payment_mode = 'Credit / Debit Card (PayHere)' WHERE id = ?")->execute([$order_id]);
             $order['status'] = 'Confirmed';
-            $order['payment_mode'] = 'Online Payment (PayHere)';
-            record_payhere_transaction($pdo, $order_id, floatval($order['total_amount']), 'PH_SANDBOX_' . time(), 'Completed', ['simulated' => true]);
+            $order['payment_mode'] = 'Credit / Debit Card (PayHere)';
+            record_payhere_transaction($pdo, $order_id, floatval($order['total_amount']), 'PH_CARD_' . time(), 'Completed', ['simulated' => true, 'channel' => 'Credit / Debit Card']);
         }
     }
 }
@@ -200,8 +200,10 @@ include 'includes/header.php';
                                     $p_stat = $payment_info['payment_status'] ?? 'Pending';
                                     ?>
                                     <div class="small text-muted border-top pt-2 mt-2">
-                                        <?php if (stripos($order['payment_mode'], 'Visa') !== false || stripos($order['payment_mode'], 'MasterCard') !== false || stripos($order['payment_mode'], 'AMEX') !== false || stripos($order['payment_mode'], 'Card') !== false): ?>
-                                            <div>Payment Status: <span class="badge bg-success"><i class="bi bi-shield-fill-check me-1"></i> Paid (Direct Card 3DS)</span></div>
+                                        <?php if (stripos($order['payment_mode'], 'PayHere') !== false): ?>
+                                            <div>Payment Status: <span class="badge bg-teal text-white"><i class="bi bi-patch-check-fill me-1"></i> Paid (PayHere Card Verified)</span></div>
+                                        <?php elseif (stripos($order['payment_mode'], 'Visa') !== false || stripos($order['payment_mode'], 'MasterCard') !== false || stripos($order['payment_mode'], 'AMEX') !== false || stripos($order['payment_mode'], 'Card') !== false): ?>
+                                            <div>Payment Status: <span class="badge bg-success"><i class="bi bi-shield-fill-check me-1"></i> Paid (Card Verified)</span></div>
                                             <?php if (!empty($raw_p['cardholder'])): ?>
                                                 <div class="mt-1" style="font-size: 0.72rem;">Cardholder: <strong><?= htmlspecialchars($raw_p['cardholder']) ?></strong></div>
                                             <?php endif; ?>
@@ -210,8 +212,6 @@ include 'includes/header.php';
                                             <?php if (!empty($raw_p['sender_name'])): ?>
                                                 <div class="mt-1" style="font-size: 0.72rem;">Depositor: <strong><?= htmlspecialchars($raw_p['sender_name']) ?></strong></div>
                                             <?php endif; ?>
-                                        <?php elseif (stripos($order['payment_mode'], 'PayHere') !== false): ?>
-                                            <div>Payment Status: <span class="badge bg-teal text-white"><i class="bi bi-patch-check-fill me-1"></i> Paid (PayHere Verified)</span></div>
                                         <?php else: ?>
                                             <div>Payment Status: <span class="badge bg-secondary"><i class="bi bi-cash-stack me-1"></i> Payable at Doorstep</span></div>
                                         <?php endif; ?>

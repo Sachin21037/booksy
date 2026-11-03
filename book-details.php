@@ -30,6 +30,43 @@ if (!$book) {
     exit;
 }
 
+// Admin / Owner Direct Moderation Actions (Quarantine / Restore)
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && in_array($_POST['action'], ['quarantine_listing', 'restore_listing'])) {
+    if (!is_admin()) {
+        set_flash('danger', 'Access denied. Administrative privileges required.');
+        header("Location: book-details.php?id=" . $book_id);
+        exit;
+    }
+
+    $adminId = (int)$_SESSION['user_id'];
+    $action  = $_POST['action'];
+    $reason  = trim($_POST['quarantine_reason'] ?? '');
+    $notes   = trim($_POST['notes'] ?? '');
+    $fullNotes = trim(($reason ? "[$reason] " : "") . $notes);
+    if (empty($fullNotes)) {
+        $fullNotes = ($action === 'quarantine_listing')
+            ? 'Manual quarantine executed directly from book listing page.'
+            : 'Listing restored to active status directly from book listing page.';
+    }
+
+    if ($action === 'quarantine_listing') {
+        $pdo->prepare("UPDATE books SET status = 'quarantined' WHERE id = ?")->execute([$book_id]);
+        if (function_exists('log_moderation_action')) {
+            log_moderation_action($pdo, null, $adminId, (int)$book['seller_id'], $book_id, 'quarantine_listing', 'none', $fullNotes);
+        }
+        set_flash('warning', '<strong>Listing Quarantined:</strong> "' . htmlspecialchars($book['title']) . '" (Listing #' . $book_id . ') has been quarantined and hidden from public search.');
+    } elseif ($action === 'restore_listing') {
+        $pdo->prepare("UPDATE books SET status = 'available' WHERE id = ?")->execute([$book_id]);
+        if (function_exists('log_moderation_action')) {
+            log_moderation_action($pdo, null, $adminId, (int)$book['seller_id'], $book_id, 'restore_listing', 'none', $fullNotes);
+        }
+        set_flash('success', '<strong>Listing Restored:</strong> "' . htmlspecialchars($book['title']) . '" is now live and available in the public catalog.');
+    }
+
+    header("Location: book-details.php?id=" . $book_id);
+    exit;
+}
+
 $page_title = $book['title'] . ' by ' . $book['author'];
 
 // Fetch related books in the same category (only books with photos)
@@ -73,6 +110,69 @@ include 'includes/header.php';
         </ol>
     </nav>
 
+    <?php if (is_admin()): ?>
+        <!-- Admin & Owner Moderation Bar -->
+        <div class="card border-0 shadow-sm rounded-4 mb-3 border bg-white overflow-hidden" style="border-left: 5px solid <?= $book['status'] === 'quarantined' ? 'var(--bs-danger)' : 'var(--teal-primary)' ?> !important;">
+            <div class="card-body p-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div class="d-flex align-items-center gap-2.5">
+                    <div class="rounded-circle p-2 d-inline-flex align-items-center justify-content-center <?= $book['status'] === 'quarantined' ? 'bg-danger-subtle text-danger' : 'bg-teal-light text-teal' ?>" style="width: 42px; height: 42px;">
+                        <i class="bi <?= $book['status'] === 'quarantined' ? 'bi-shield-slash-fill' : 'bi-shield-check' ?> fs-5"></i>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge bg-navy text-white px-2.5 py-1 rounded-pill" style="font-size: 0.72rem;">
+                                <i class="bi bi-shield-lock-fill text-gold me-1"></i> Staff Controls (<?= htmlspecialchars(ucfirst($_SESSION['user_role'] ?? 'Admin')) ?>)
+                            </span>
+                            <?php if ($book['status'] === 'quarantined'): ?>
+                                <span class="badge bg-danger rounded-pill px-2.5 py-1" style="font-size: 0.72rem;">
+                                    <i class="bi bi-exclamation-octagon-fill me-1"></i> Status: Quarantined
+                                </span>
+                            <?php elseif ($book['status'] === 'available'): ?>
+                                <span class="badge bg-success rounded-pill px-2.5 py-1" style="font-size: 0.72rem;">
+                                    <i class="bi bi-check-circle-fill me-1"></i> Status: Publicly Available
+                                </span>
+                            <?php elseif ($book['status'] === 'sold'): ?>
+                                <span class="badge bg-secondary rounded-pill px-2.5 py-1" style="font-size: 0.72rem;">
+                                    <i class="bi bi-bag-check-fill me-1"></i> Status: Sold Out
+                                </span>
+                            <?php else: ?>
+                                <span class="badge bg-warning text-dark rounded-pill px-2.5 py-1" style="font-size: 0.72rem;">
+                                    Status: <?= htmlspecialchars(ucfirst($book['status'])) ?>
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="text-muted small mt-1" style="font-size: 0.78rem;">
+                            Listing #<?= $book['id'] ?> • Seller: <strong><?= htmlspecialchars($book['seller_name']) ?></strong> (ID #<?= $book['seller_id'] ?>)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Direct Actions -->
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <?php if ($book['status'] === 'quarantined'): ?>
+                        <form method="POST" class="d-inline" onsubmit="return confirm('Restore this book listing back to available in the public catalog?');">
+                            <input type="hidden" name="action" value="restore_listing">
+                            <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 py-1.5 fw-bold shadow-xs">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Restore Listing
+                            </button>
+                        </form>
+                    <?php else: ?>
+                        <button type="button" class="btn btn-sm btn-danger rounded-pill px-3 py-1.5 fw-bold shadow-xs" data-bs-toggle="modal" data-bs-target="#adminQuarantineModal">
+                            <i class="bi bi-shield-slash-fill me-1"></i> Quarantine Listing
+                        </button>
+                    <?php endif; ?>
+
+                    <a href="edit-book.php?id=<?= $book['id'] ?>" class="btn btn-sm btn-outline-dark rounded-pill px-3 py-1.5">
+                        <i class="bi bi-pencil me-1"></i> Edit
+                    </a>
+                    <a href="admin-fraud.php?tab=quarantine" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5">
+                        <i class="bi bi-shield-exclamation me-1"></i> Fraud Center
+                    </a>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <!-- Main Book Details Card -->
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-5 bg-white border">
         <div class="card-body p-3 p-md-4 p-lg-5">
@@ -109,6 +209,8 @@ include 'includes/header.php';
 
                         <?php if ($book['status'] === 'sold'): ?>
                             <div class="alert alert-danger fw-bold text-center"><i class="bi bi-x-circle-fill me-1"></i> This book has already been sold!</div>
+                        <?php elseif ($book['status'] === 'quarantined'): ?>
+                            <div class="alert alert-danger fw-bold text-center border border-danger-subtle"><i class="bi bi-shield-slash-fill me-1"></i> Listing Quarantined by Moderation</div>
                         <?php endif; ?>
 
                         <!-- Quick Action Row Below Image -->
@@ -192,12 +294,28 @@ include 'includes/header.php';
                             <?php endif; ?>
                         </div>
 
-                        <!-- Report Seller / Item Trigger -->
+                        <!-- Report Seller / Item Trigger & Admin Quarantine -->
                         <div class="d-flex justify-content-between align-items-center mt-3 pt-2.5 border-top" style="border-top: 1px dashed rgba(0,0,0,0.1) !important;">
                             <span class="small text-muted"><i class="bi bi-shield-lock-fill text-teal me-1"></i> Booksy Trust & Community Safety</span>
-                            <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1 fw-semibold" data-bs-toggle="modal" data-bs-target="#reportModal">
-                                <i class="bi bi-flag-fill me-1"></i> Report Seller / Item
-                            </button>
+                            <div class="d-flex align-items-center gap-2">
+                                <?php if (is_admin()): ?>
+                                    <?php if ($book['status'] === 'quarantined'): ?>
+                                        <form method="POST" class="d-inline" onsubmit="return confirm('Restore listing to public catalog?');">
+                                            <input type="hidden" name="action" value="restore_listing">
+                                            <button type="submit" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 fw-bold">
+                                                <i class="bi bi-arrow-counterclockwise me-1"></i> Restore
+                                            </button>
+                                        </form>
+                                    <?php else: ?>
+                                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1 fw-bold" data-bs-toggle="modal" data-bs-target="#adminQuarantineModal">
+                                            <i class="bi bi-shield-slash-fill me-1"></i> Quarantine
+                                        </button>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 fw-semibold" data-bs-toggle="modal" data-bs-target="#reportModal">
+                                    <i class="bi bi-flag-fill me-1"></i> Report
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -262,6 +380,10 @@ include 'includes/header.php';
                                     <i class="bi bi-cart-plus-fill me-2"></i> Add to Cart
                                 </button>
                             </form>
+                        </div>
+                    <?php elseif ($book['status'] === 'quarantined'): ?>
+                        <div class="p-3 bg-danger-subtle text-danger rounded-3 text-center fw-bold border border-danger-subtle">
+                            <i class="bi bi-shield-slash-fill me-1"></i> This listing has been quarantined by Booksy Moderation
                         </div>
                     <?php else: ?>
                         <button class="btn btn-secondary btn-lg w-100 py-3 disabled">Item Sold Out</button>
@@ -444,5 +566,63 @@ include 'includes/header.php';
         </div>
     </div>
 </div>
+
+<?php if (is_admin()): ?>
+<!-- Admin Quick Quarantine Modal -->
+<div class="modal fade" id="adminQuarantineModal" tabindex="-1" aria-labelledby="adminQuarantineModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-danger text-white border-0 py-3 px-4">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle bg-white text-danger d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+                        <i class="bi bi-shield-slash-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0 text-white" id="adminQuarantineModalLabel">Quarantine Listing #<?= $book['id'] ?></h5>
+                        <div class="small text-white-50">Direct Administrator Action</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <form method="POST" action="book-details.php?id=<?= $book['id'] ?>">
+                <input type="hidden" name="action" value="quarantine_listing">
+                <div class="modal-body p-4 bg-white">
+                    <div class="alert alert-warning border border-warning-subtle small mb-3">
+                        <i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>
+                        <strong>Impact:</strong> This will immediately hide <strong>"<?= htmlspecialchars($book['title']) ?>"</strong> from the public search, homepage, and categories. Buyers will be unable to add it to cart.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-navy small">Quarantine Violation Category <span class="text-danger">*</span></label>
+                        <select name="quarantine_reason" class="form-select form-select-sm" required>
+                            <option value="Prohibited or Counterfeit Content">Prohibited, Illegal, or Counterfeit Content</option>
+                            <option value="Inaccurate or Fake Book Condition">Inaccurate / Misleading Book Condition</option>
+                            <option value="Bait-and-Switch Pricing">Bait-and-Switch or Inflated Pricing</option>
+                            <option value="Off-Platform Payment Solicitation">Off-Platform Payment Solicitation in Description</option>
+                            <option value="Multiple Buyer Reports">Multiple Buyer Complaints / Fraud Risk</option>
+                            <option value="Duplicate or Spam Listing">Duplicate or Spam Listing</option>
+                            <option value="Administrative Policy Review">Administrative / Quality Review</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold text-navy small">Moderator Investigation Notes (Optional)</label>
+                        <textarea name="notes" class="form-control form-control-sm" rows="3" placeholder="Explain specific evidence, chat logs, or reasons for staff record..."></textarea>
+                        <div class="text-muted mt-1" style="font-size: 0.72rem;">Notes will be securely recorded in the immutable moderation audit log.</div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light border-0 py-3 px-4 d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4 fw-bold shadow-sm">
+                        <i class="bi bi-shield-slash-fill me-1"></i> Confirm &amp; Quarantine
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php include 'includes/footer.php'; ?>

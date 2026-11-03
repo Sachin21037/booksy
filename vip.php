@@ -19,7 +19,7 @@ $annualPrice = round($monthlyPrice * 10, 2);
 $message = '';
 $messageType = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['subscribe_vip'])) {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['subscribe_vip'])) {
     if (!is_logged_in()) {
         set_flash('warning', 'Please sign in or register to join Booksy VIP.');
         header("Location: login.php?redirect=vip.php");
